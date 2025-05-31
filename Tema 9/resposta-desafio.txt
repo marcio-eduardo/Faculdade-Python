@@ -1,0 +1,71 @@
+
+import numpy as np
+import pandas as pd
+
+"""## Processo coleta de dados"""
+
+nomes_das_colunas = ['user_id', 'item_id', 'rating', 'timestamp']
+df = pd.read_csv('filmes_ranking.data', sep='\t', names=nomes_das_colunas)
+
+"""Agora é coletado os titulos dos filmes:"""
+
+titulos_dos_filmes = pd.read_csv("id_filmes_titulos")
+print(titulos_dos_filmes.head())
+
+"""Podemos juntá-los:"""
+
+df = pd.merge(df,titulos_dos_filmes,on='item_id')
+print(df.head())
+
+"""Pois bem, agora sabemos quais são os filmes!
+
+## Identificando filmes semelhantes
+
+Agora vamos criar uma matriz que tenha o ID dos usuários em um acesso e o título do filme em outro eixo. Cada célula irá consistir na avaliação que o usuário deu ao filme.
+"""
+
+filmes = pd.crosstab(df.user_id,df.title,values=df.rating, aggfunc='mean')
+print(filmes.head())
+
+"""Vamos escolher um filme: starwars.
+
+Agora vamos pegar as avaliações dos usuários para esse filme:
+"""
+
+starwars_avaliacoes = filmes['Star Wars (1977)']
+print(starwars_avaliacoes.head())
+
+"""Podemos então usar o método corrwith() para obter correlações entre a séries de pandas:"""
+
+iguais_a_starwars = filmes.corrwith(starwars_avaliacoes,method='pearson')
+
+corr_starwars = pd.DataFrame(iguais_a_starwars,columns=['Correlacao'])
+corr_starwars.dropna(inplace=True)
+print(corr_starwars.head(20))
+
+"""Agora, se classificarmos o quadro de dados por correlação, devemos obter os 30 filmes mais parecidos e consequentemente o que recomendaria ao usuário. """
+
+lista_correlacao_final = corr_starwars.sort_values('Correlacao',ascending=False).head(30)
+
+print(lista_correlacao_final)
+
+"""Agora vamos analisar o conceito da "galinha dos ovos de ouro", e indicar os 4 filmes que apresentam maior correlação com o filme selecionado: Star Wars: (1977). Para essa estratégia, vamos calcular o fator de inflação da variância.
+
+Aqui calculamos VIF, onde os dois primeiros são nossas 'galinhas dos ovos de ouro' e consequentemente são os 4 filmes que apresentam maior correlação com o filme selecionado: Star Wars: (1977)
+"""
+
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+def calc_vif(X):
+
+    # Calculating VIF
+    vif = pd.DataFrame()
+    vif["variables"] = X.columns
+    vif["VIF"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
+
+    return(vif)
+
+valores = filmes[lista_correlacao_final.index].fillna(0)
+vif = calc_vif(valores)
+print(vif.sort_values('VIF',ascending=False).head(4))
+
